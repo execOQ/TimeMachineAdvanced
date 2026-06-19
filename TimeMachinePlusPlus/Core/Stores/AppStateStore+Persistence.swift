@@ -50,7 +50,7 @@ extension AppStateStore {
         lastUpdateCheckDate = state.lastUpdateCheckDate
         lastNotifiedUpdateVersion = state.lastNotifiedUpdateVersion
         refreshHelperStatus()
-        refreshFullDiskAccessStatus()
+        refreshAccessStatus()
         refreshLoginItemStatus()
     }
 

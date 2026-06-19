@@ -45,4 +45,28 @@ final class FileSystemScannerTests: XCTestCase {
 
         XCTAssertEqual(matches.map(\.path), [build.path])
     }
+
+    func testScannerPrunesIgnoredPaths() throws {
+        let root = FileManager.default.temporaryDirectory.standardizedFileURL
+            .appendingPathComponent("TimeMachinePlusPlusIgnored-\(UUID().uuidString)", isDirectory: true)
+        let ignoredBuild = root.appendingPathComponent("ignored/project/build", isDirectory: true)
+        let includedBuild = root.appendingPathComponent("included/project/build", isDirectory: true)
+        try FileManager.default.createDirectory(at: ignoredBuild, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: includedBuild, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let settings = AppSettings(
+            scanRoots: [root.path],
+            ignoredPaths: [root.appendingPathComponent("ignored", isDirectory: true).path],
+            scanIntervalMinutes: AppSettings.dailyScanIntervalMinutes,
+            maxDepth: 8
+        )
+
+        let matches = FileSystemScanner().scan(
+            settings: settings,
+            rule: RegexRule(name: "Build", pattern: "build/", kind: .pattern)
+        )
+
+        XCTAssertEqual(matches.map(\.path), [includedBuild.path])
+    }
 }

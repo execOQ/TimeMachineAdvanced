@@ -25,6 +25,7 @@ final class AppStateStore {
     var isHelperInstalled = false
     var isHelperLoaded = false
     var isHelperRunning = false
+    var isHelperOperationInProgress = false
     var helperRunCount: Int?
     var helperLastExitCode: Int32?
     var fullDiskAccessStatus: FullDiskAccessStatus = .missing
@@ -55,6 +56,10 @@ final class AppStateStore {
     let appUpdater = AppUpdater(owner: "execOQ", repo: "TimeMachinePlusPlus", releasePrefix: "TimeMachine++", interval: 365 * 24 * 60 * 60, provider: NormalizingGitHubReleaseProvider())
     @ObservationIgnored
     var activeTask: Task<Void, Never>?
+    @ObservationIgnored
+    var helperStatusTask: Task<Void, Never>?
+    @ObservationIgnored
+    var helperOperationTask: Task<Void, Never>?
     @ObservationIgnored
     var updateReleaseNotesTask: Task<Void, Never>?
     @ObservationIgnored
@@ -94,10 +99,6 @@ final class AppStateStore {
         return updateStatusMessage
     }
     var hasAvailableUpdate: Bool { updateStatus == .readyToInstall || updateStatus == .downloading || updateStatus == .available }
-    var updateMenuBarImage: String {
-        updateStatus.menuBarImage
-    }
-
     init(timeMachine: TimeMachineClient = LiveTimeMachineClient()) {
         self.timeMachine = timeMachine
         configureAppUpdater()

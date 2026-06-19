@@ -2,13 +2,16 @@ import Foundation
 
 extension AppStateStore {
     func scanNow() async {
+        refreshAccessStatus()
         updateOperation(detail: "Scanning rules", progress: isScanAndApplyOperation ? 0.12 : nil)
 
         let validRules = rules.filter { RuleMatcher.validationIssue(for: $0) == nil }
+        let activeRoots = activeScanRoots
+        let scanSettings = settings.withScanRoots(activeRoots)
 
         updateOperation(detail: "Searching scan roots", progress: isScanAndApplyOperation ? 0.20 : nil)
-        let scanned = await Task.detached(priority: .userInitiated) { [settings, scanner] in
-            scanner.scan(settings: settings, rules: validRules)
+        let scanned = await Task.detached(priority: .userInitiated) { [scanSettings, scanner] in
+            scanner.scan(settings: scanSettings, rules: validRules)
         }.value
         guard !Task.isCancelled else { return }
 
@@ -58,7 +61,7 @@ extension AppStateStore {
 
         matches = nextMatches.sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
         lastScanDate = Date()
-        statusMessage = "Found \(matches.count) candidate exclusions"
+        statusMessage = accessWarningMessage ?? "Found \(matches.count) candidate exclusions"
         rulesStatusMessage = statusMessage
         if isScanAndApplyOperation {
             updateOperation(detail: "Found \(matches.count) candidate exclusions", progress: 0.58)

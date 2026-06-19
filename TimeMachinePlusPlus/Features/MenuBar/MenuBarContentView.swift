@@ -4,9 +4,11 @@ import SwiftUI
 struct MenuBarContentView: View {
     @Environment(AppStateStore.self) private var store
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            accessWarning()
             statusSummary()
             helperSummary()
 
@@ -22,6 +24,19 @@ struct MenuBarContentView: View {
     }
 
     // MARK: - View Components
+
+    @ViewBuilder
+    private func accessWarning() -> some View {
+        if let warning = store.accessWarningMessage {
+            Label(warning, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .lineLimit(3)
+                .frame(maxWidth: 260, alignment: .leading)
+
+            Divider()
+        }
+    }
 
     private func statusSummary() -> some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -78,6 +93,8 @@ struct MenuBarContentView: View {
 
     private func utilityActions() -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            Button("Settings...", action: openSettings.callAsFunction)
+
             Button("Refresh Helper Status") {
                 store.refreshHelperStatus()
             }

@@ -24,8 +24,9 @@ struct FileSystemScanner {
 
         var matches: [Candidate: RegexRule] = [:]
         let fileManager = FileManager.default
+        let ignoredPaths = settings.ignoredPaths
 
-        for root in settings.scanRoots where fileManager.fileExists(atPath: root) {
+        for root in settings.scanRoots where fileManager.fileExists(atPath: root) && !isIgnored(root, ignoredPaths: ignoredPaths) {
             let rootURL = URL(fileURLWithPath: root)
             let keys: [URLResourceKey] = [.isDirectoryKey, .fileSizeKey, .totalFileAllocatedSizeKey]
             guard let enumerator = fileManager.enumerator(
@@ -46,6 +47,12 @@ struct FileSystemScanner {
                 let values = try? url.resourceValues(forKeys: Set(keys))
                 let isDirectory = values?.isDirectory ?? false
                 let path = url.standardizedFileURL.path
+                if isIgnored(path, ignoredPaths: ignoredPaths) {
+                    if isDirectory {
+                        enumerator.skipDescendants()
+                    }
+                    continue
+                }
 
                 for rule in enabledRules {
                     guard isDirectory || rule.includeFiles else { continue }
@@ -68,8 +75,9 @@ struct FileSystemScanner {
         var matches: [Candidate] = []
         var seenPaths = Set<String>()
         let fileManager = FileManager.default
+        let ignoredPaths = settings.ignoredPaths
 
-        for root in settings.scanRoots where fileManager.fileExists(atPath: root) {
+        for root in settings.scanRoots where fileManager.fileExists(atPath: root) && !isIgnored(root, ignoredPaths: ignoredPaths) {
             let rootURL = URL(fileURLWithPath: root)
             let keys: [URLResourceKey] = [.isDirectoryKey, .fileSizeKey, .totalFileAllocatedSizeKey]
             guard let enumerator = fileManager.enumerator(
@@ -93,9 +101,16 @@ struct FileSystemScanner {
 
                 let values = try? url.resourceValues(forKeys: Set(keys))
                 let isDirectory = values?.isDirectory ?? false
+                let path = url.standardizedFileURL.path
+                if isIgnored(path, ignoredPaths: ignoredPaths) {
+                    if isDirectory {
+                        enumerator.skipDescendants()
+                    }
+                    continue
+                }
+
                 guard isDirectory || rule.includeFiles else { continue }
 
-                let path = url.standardizedFileURL.path
                 guard !seenPaths.contains(path) else { continue }
                 guard RuleMatcher.matches(path: path, isDirectory: isDirectory, rule: rule) else { continue }
 
@@ -114,5 +129,12 @@ struct FileSystemScanner {
     private func relativeDepth(of url: URL, from root: URL) -> Int {
         let relative = url.path.replacingOccurrences(of: root.path, with: "")
         return relative.split(separator: "/").count
+    }
+
+    private func isIgnored(_ path: String, ignoredPaths: [String]) -> Bool {
+        let normalizedPath = PathNormalizer.normalized(path)
+        return ignoredPaths.contains { ignoredPath in
+            normalizedPath == ignoredPath || normalizedPath.hasPrefix(ignoredPath + "/")
+        }
     }
 }

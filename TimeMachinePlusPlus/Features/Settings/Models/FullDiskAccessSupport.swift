@@ -23,6 +23,20 @@ enum FullDiskAccessStatus: Equatable {
 }
 
 enum FullDiskAccessSupport {
+    static var appName: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
+            ?? "TimeMachine++"
+    }
+
+    static var appBundleURL: URL {
+        Bundle.main.bundleURL
+    }
+
+    static var appIcon: NSImage {
+        NSWorkspace.shared.icon(forFile: appBundleURL.path)
+    }
+
     static var status: FullDiskAccessStatus {
         guard !isSandboxed else { return .sandboxed }
         return canReadProtectedDirectory ? .granted : .missing

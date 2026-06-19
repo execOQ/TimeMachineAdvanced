@@ -42,14 +42,14 @@ enum TimeMachinePlusPlusMain {
 struct TimeMachinePlusPlusApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var store: AppStateStore = .init()
-    @State private var isShowingSettings = false
 
     var body: some Scene {
         WindowGroup("TimeMachine++", id: "main") {
-            ContentView(isShowingSettings: $isShowingSettings)
+            ContentView()
                 .frame(minWidth: 630, minHeight: 450)
                 .environment(store)
                 .task {
+                    guard !Self.isRunningForPreviews else { return }
                     store.load()
                     if !Self.isRunningUnitTests && !Self.isRunningForPreviews {
                         store.checkForUpdatesAutomaticallyIfNeeded()
@@ -57,13 +57,6 @@ struct TimeMachinePlusPlusApp: App {
                 }
         }
         .commands {
-            CommandGroup(replacing: .appSettings) {
-                Button("Settings...") {
-                    isShowingSettings = true
-                }
-                .keyboardShortcut(",", modifiers: .command)
-            }
-
             CommandGroup(replacing: .newItem) {
                 Button(store.startActionTitle) {
                     store.startConfiguredStartAction()
@@ -72,7 +65,12 @@ struct TimeMachinePlusPlusApp: App {
             }
         }
 
-        MenuBarExtra("TimeMachine++", image: store.updateMenuBarImage) {
+        Settings {
+            SettingsView()
+                .environment(store)
+        }
+
+        MenuBarExtra("TimeMachine++", image: store.menuBarImage) {
             MenuBarContentView()
                 .environment(store)
         }
@@ -83,11 +81,11 @@ struct TimeMachinePlusPlusApp: App {
     }
 
     fileprivate static var isRunningForPreviews: Bool {
-        ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        AppRuntime.isRunningForPreviews
     }
 
     private static var isRunningUnitTests: Bool {
-        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        AppRuntime.isRunningUnitTests
     }
 }
 

@@ -108,19 +108,6 @@ extension AppStateStore {
         save()
     }
 
-    func addScanRoots(_ urls: [URL]) {
-        guard canEdit else { return }
-        let known = Set(settings.scanRoots)
-        settings.scanRoots.append(contentsOf: urls.map(\.path).filter { !known.contains($0) })
-        save()
-    }
-
-    func deleteScanRoot(_ path: String) {
-        guard canEdit else { return }
-        settings.scanRoots.removeAll { $0 == path }
-        save()
-    }
-
     func setMatchSelected(_ match: ScanMatch, isSelected: Bool) {
         guard canEdit else { return }
         guard let index = matches.firstIndex(where: { $0.id == match.id }) else { return }
@@ -130,8 +117,11 @@ extension AppStateStore {
     func previewMatches(for rule: RegexRule) async -> [RulePreviewResult] {
         guard rule.isEnabled, rule.kind != .path, RuleMatcher.validationError(for: rule) == nil else { return [] }
 
-        let candidates = await Task.detached(priority: .userInitiated) { [settings, scanner] in
-            scanner.scan(settings: settings, rule: rule, limit: settings.previewResultLimit)
+        refreshAccessStatus()
+        let activeRoots = activeScanRoots
+        let scanSettings = settings.withScanRoots(activeRoots)
+        let candidates = await Task.detached(priority: .userInitiated) { [scanSettings, scanner] in
+            scanner.scan(settings: scanSettings, rule: rule, limit: scanSettings.previewResultLimit)
         }.value
         return candidates.map { candidate in
             RulePreviewResult(

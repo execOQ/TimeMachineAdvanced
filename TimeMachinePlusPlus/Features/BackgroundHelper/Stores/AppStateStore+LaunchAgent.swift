@@ -17,40 +17,98 @@ enum HelperNotifications {
 extension AppStateStore {
     func installBackgroundAgent() {
         guard canEdit else { return }
-        do {
-            try launchAgent.install(intervalMinutes: settings.scanIntervalMinutes)
-            refreshHelperStatus()
-            statusMessage = "Background scanner installed"
-        } catch {
-            refreshHelperStatus()
-            statusMessage = "Could not install background scanner: \(error.localizedDescription)"
+        let launchAgent = launchAgent
+        let intervalMinutes = settings.scanIntervalMinutes
+        statusMessage = "Reloading background scanner"
+        isHelperOperationInProgress = true
+
+        helperStatusTask?.cancel()
+        helperOperationTask?.cancel()
+        helperOperationTask = Task { @MainActor in
+            let result = await Task.detached(priority: .utility) { () async -> HelperStatusOperationResult in
+                do {
+                    try launchAgent.install(intervalMinutes: intervalMinutes)
+                    let update = await settledHelperStatus(launchAgent: launchAgent, shouldWaitForLoaded: true)
+                    return HelperStatusOperationResult(update: update)
+                } catch {
+                    let update = await settledHelperStatus(launchAgent: launchAgent, shouldWaitForLoaded: false)
+                    return HelperStatusOperationResult(update: update, error: error)
+                }
+            }.value
+
+            guard !Task.isCancelled else {
+                isHelperOperationInProgress = false
+                return
+            }
+            applyHelperStatusUpdate(result.update)
+            statusMessage = result.error == nil
+                ? "Background scanner installed"
+                : "Could not install background scanner: \(result.errorDescription)"
+            isHelperOperationInProgress = false
+            helperOperationTask = nil
         }
     }
 
     func uninstallBackgroundAgent() {
         guard canEdit else { return }
-        do {
-            try launchAgent.uninstall()
-            refreshHelperStatus()
-            statusMessage = "Background scanner removed"
-        } catch {
-            refreshHelperStatus()
-            statusMessage = "Could not remove background scanner: \(error.localizedDescription)"
+        let launchAgent = launchAgent
+        statusMessage = "Removing background scanner"
+        isHelperOperationInProgress = true
+
+        helperStatusTask?.cancel()
+        helperOperationTask?.cancel()
+        helperOperationTask = Task { @MainActor in
+            let result = await Task.detached(priority: .utility) { () async -> HelperStatusOperationResult in
+                do {
+                    try launchAgent.uninstall()
+                    let update = await settledHelperStatus(launchAgent: launchAgent, shouldWaitForInstalled: false)
+                    return HelperStatusOperationResult(update: update)
+                } catch {
+                    let update = await settledHelperStatus(launchAgent: launchAgent, shouldWaitForInstalled: true)
+                    return HelperStatusOperationResult(update: update, error: error)
+                }
+            }.value
+
+            guard !Task.isCancelled else {
+                isHelperOperationInProgress = false
+                return
+            }
+            applyHelperStatusUpdate(result.update)
+            statusMessage = result.error == nil
+                ? "Background scanner removed"
+                : "Could not remove background scanner: \(result.errorDescription)"
+            isHelperOperationInProgress = false
+            helperOperationTask = nil
         }
     }
 
     func refreshHelperStatus() {
-        let snapshot = launchAgent.snapshot()
-        isHelperInstalled = snapshot.isInstalled
-        isHelperLoaded = snapshot.isLoaded
-        isHelperRunning = snapshot.isRunning
-        helperRunCount = snapshot.runCount
-        helperLastExitCode = snapshot.lastExitCode
+        guard helperOperationTask == nil else { return }
+        let launchAgent = launchAgent
+        let storage = storage
 
-        let state = storage.load()
-        lastHelperScanDate = state.lastHelperScanDate
-        lastHelperScannedItemCount = state.lastHelperScannedItemCount
-        lastHelperAddedExclusionCount = state.lastHelperAddedExclusionCount
+        helperStatusTask?.cancel()
+        helperStatusTask = Task { @MainActor in
+            let update = await Task.detached(priority: .utility) {
+                HelperStatusUpdate(snapshot: launchAgent.snapshot(), state: storage.load())
+            }.value
+
+            guard !Task.isCancelled else { return }
+            applyHelperStatusUpdate(update)
+            helperStatusTask = nil
+        }
+    }
+
+    private func applyHelperStatusUpdate(_ update: HelperStatusUpdate) {
+        isHelperInstalled = update.snapshot.isInstalled
+        isHelperLoaded = update.snapshot.isLoaded
+        isHelperRunning = update.snapshot.isRunning
+        helperRunCount = update.snapshot.runCount
+        helperLastExitCode = update.snapshot.lastExitCode
+
+        lastHelperScanDate = update.state.lastHelperScanDate
+        lastHelperScannedItemCount = update.state.lastHelperScannedItemCount
+        lastHelperAddedExclusionCount = update.state.lastHelperAddedExclusionCount
     }
 
     #if DEBUG
@@ -86,4 +144,42 @@ extension AppStateStore {
         save()
     }
     #endif
+}
+
+private struct HelperStatusUpdate {
+    var snapshot: LaunchAgentSnapshot
+    var state: PersistedState
+
+    init(snapshot: LaunchAgentSnapshot, state: PersistedState = StateStorage().load()) {
+        self.snapshot = snapshot
+        self.state = state
+    }
+}
+
+private struct HelperStatusOperationResult {
+    var update: HelperStatusUpdate
+    var error: Error?
+
+    var errorDescription: String {
+        error?.localizedDescription ?? ""
+    }
+}
+
+private func settledHelperStatus(
+    launchAgent: LaunchAgentService,
+    shouldWaitForLoaded: Bool? = nil,
+    shouldWaitForInstalled: Bool? = nil
+) async -> HelperStatusUpdate {
+    for _ in 0..<10 {
+        let snapshot = launchAgent.snapshot()
+        let loadedMatches = shouldWaitForLoaded.map { snapshot.isLoaded == $0 } ?? true
+        let installedMatches = shouldWaitForInstalled.map { snapshot.isInstalled == $0 } ?? true
+        if loadedMatches && installedMatches {
+            return HelperStatusUpdate(snapshot: snapshot)
+        }
+
+        try? await Task.sleep(for: .milliseconds(200))
+    }
+
+    return HelperStatusUpdate(snapshot: launchAgent.snapshot())
 }

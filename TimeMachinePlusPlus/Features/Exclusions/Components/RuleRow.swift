@@ -35,7 +35,7 @@ struct RuleRow: View {
         .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
         .onChange(of: isExpanded, onExpansionChanged)
         .onChange(of: rule, onRuleChanged)
-        .onChange(of: store.settings.scanRoots, onPreviewSettingsChanged)
+        .onChange(of: store.fullDiskAccessStatus, onPreviewSettingsChanged)
         .onChange(of: store.settings.maxDepth, onPreviewSettingsChanged)
         .onDisappear(perform: onDisappear)
     }
@@ -91,7 +91,6 @@ struct RuleRow: View {
             }
         }
     }
-
 }
 
 private extension RuleRow {
@@ -145,10 +144,12 @@ private extension RuleRow {
     }
 
     func pickPath() {
-        guard let url = PathPicker.pickFileOrFolder(initialPath: rule.pattern) else { return }
-        rule.pattern = url.path
-        if rule.name == "New rule" || rule.name.isEmpty {
-            rule.name = url.lastPathComponent
+        Task { @MainActor in
+            guard let url = await PathPicker.pickFileOrFolder(initialPath: rule.pattern) else { return }
+            rule.pattern = url.path
+            if rule.name == "New rule" || rule.name.isEmpty {
+                rule.name = url.lastPathComponent
+            }
         }
     }
 

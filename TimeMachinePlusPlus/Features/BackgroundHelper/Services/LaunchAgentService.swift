@@ -12,6 +12,14 @@ struct LaunchAgentSnapshot {
 struct LaunchAgentService {
     var label = "com.timemachineplusplus.scan"
 
+    var domain: String {
+        "gui/\(getuid())"
+    }
+
+    var serviceTarget: String {
+        "\(domain)/\(label)"
+    }
+
     var plistURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents")
@@ -27,7 +35,7 @@ struct LaunchAgentService {
             return LaunchAgentSnapshot(isInstalled: false, isLoaded: false, isRunning: false, runCount: nil, lastExitCode: nil)
         }
 
-        guard let result = try? runLaunchctl(arguments: ["print", "gui/\(getuid())/\(label)"]), result.isSuccess else {
+        guard let result = try? runLaunchctl(arguments: ["print", serviceTarget]), result.isSuccess else {
             return LaunchAgentSnapshot(isInstalled: true, isLoaded: false, isRunning: false, runCount: nil, lastExitCode: nil)
         }
 
@@ -67,12 +75,16 @@ struct LaunchAgentService {
         """
 
         try plist.write(to: plistURL, atomically: true, encoding: .utf8)
-        _ = try? runLaunchctl(arguments: ["unload", plistURL.path])
-        _ = try runLaunchctl(arguments: ["load", plistURL.path])
+        _ = try? runLaunchctl(arguments: ["bootout", serviceTarget])
+        _ = try? runLaunchctl(arguments: ["enable", serviceTarget])
+        try runLaunchctlOrThrow(arguments: ["bootstrap", domain, plistURL.path])
+        try runLaunchctlOrThrow(arguments: ["enable", serviceTarget])
+        _ = try? runLaunchctl(arguments: ["kickstart", "-k", serviceTarget])
     }
 
     func uninstall() throws {
-        _ = try? runLaunchctl(arguments: ["unload", plistURL.path])
+        _ = try? runLaunchctl(arguments: ["bootout", serviceTarget])
+        _ = try? runLaunchctl(arguments: ["disable", serviceTarget])
         if FileManager.default.fileExists(atPath: plistURL.path) {
             try FileManager.default.removeItem(at: plistURL)
         }
@@ -115,6 +127,13 @@ struct LaunchAgentService {
         return CommandResult(exitCode: process.terminationStatus, output: output, errorOutput: errorOutput)
     }
 
+    private func runLaunchctlOrThrow(arguments: [String]) throws {
+        let result = try runLaunchctl(arguments: arguments)
+        guard result.isSuccess else {
+            throw LaunchAgentError.launchctlFailed(arguments: arguments, result: result)
+        }
+    }
+
     private static func integerValue(named field: String, in output: String) -> Int? {
         for line in output.split(separator: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -122,5 +141,21 @@ struct LaunchAgentService {
             return Int(trimmed.replacingOccurrences(of: "\(field) = ", with: ""))
         }
         return nil
+    }
+}
+
+enum LaunchAgentError: LocalizedError {
+    case launchctlFailed(arguments: [String], result: CommandResult)
+
+    var errorDescription: String? {
+        switch self {
+        case let .launchctlFailed(arguments, result):
+            let detail = result.errorOutput.isEmpty ? result.output : result.errorOutput
+            let command = (["launchctl"] + arguments).joined(separator: " ")
+            if detail.isEmpty {
+                return "\(command) failed with exit code \(result.exitCode)"
+            }
+            return "\(command) failed: \(detail.trimmingCharacters(in: .whitespacesAndNewlines))"
+        }
     }
 }

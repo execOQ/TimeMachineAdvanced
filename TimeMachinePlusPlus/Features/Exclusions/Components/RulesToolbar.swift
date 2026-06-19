@@ -78,8 +78,10 @@ struct RulesToolbar: ToolbarContent {
 private extension RulesToolbar {
     @MainActor
     func pickPaths() {
-        let urls = PathPicker.pickPaths(canChooseFiles: true, canChooseDirectories: true)
-        guard !urls.isEmpty else { return }
-        store.addPathRules(urls, undoManager: undoManager)
+        Task { @MainActor in
+            let urls = await PathPicker.pickPaths(canChooseFiles: true, canChooseDirectories: true)
+            guard !urls.isEmpty else { return }
+            store.addPathRules(urls, undoManager: undoManager)
+        }
     }
 }

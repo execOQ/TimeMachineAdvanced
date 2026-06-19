@@ -1,24 +1,14 @@
 import SwiftUI
 
-struct AppActionLabel: View {
-    var title: String
-    var systemImage: String
-
-    var body: some View {
-        Label(title, systemImage: systemImage)
-            .foregroundStyle(.primary)
-    }
-}
-
 struct AppSectionHeader: View {
     var title: String
     var subtitle: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
+            Text(self.title)
                 .font(.title2.weight(.semibold))
-            Text(subtitle)
+            Text(self.subtitle)
                 .foregroundStyle(.secondary)
         }
     }
@@ -29,38 +19,93 @@ struct AppSectionLabel: View {
     var topPadding: CGFloat = 4
 
     var body: some View {
-        Text(title)
+        Text(self.title)
             .font(.caption.weight(.semibold))
             .foregroundStyle(.tertiary)
             .textCase(.uppercase)
             .tracking(0.8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, topPadding)
+            .padding(.top, self.topPadding)
     }
 }
 
-struct AppSectionView<Content: View>: View {
+struct AppSectionView<Actions: View, Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    @ViewBuilder var actions: () -> Actions
     var title: String
     var description: String = ""
-    @ViewBuilder var content: () -> Content
+    var enableBackground: Bool = true
+
+    init(
+        title: String,
+        description: String = "",
+        enableBackground: Bool = true,
+        @ViewBuilder content: @escaping () -> Content,
+        @ViewBuilder actions: @escaping () -> Actions
+    ) {
+        self.title = title
+        self.description = description
+        self.enableBackground = enableBackground
+        self.content = content
+        self.actions = actions
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            AppSectionLabel(title: title, topPadding: 0)
-                .padding(.leading, 8)
+            HStack {
+                if !self.title.isEmpty {
+                    AppSectionLabel(title: self.title)
+                }
 
-            VStack(alignment: .leading, spacing: 14) {
-                content()
+                Spacer()
+                Group {
+                    self.actions()
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .fontWeight(.semibold)
+            }
+            .padding(.horizontal, 6)
+
+            VStack(alignment: .leading, spacing: 10) {
+                if #available(macOS 15.0, *) {
+                    Group(subviews: self.content()) { subviews in
+                        ForEach(subviews.indices, id: \.self) { idx in
+                            subviews[idx]
+
+                            if idx != subviews.count - 1 {
+                                Divider()
+                            }
+                        }
+                    }
+                } else {
+                    self.content()
+                }
             }
             .boxContainer(padding: 8)
 
-            if !description.isEmpty {
-                Text(description)
+            if !self.description.isEmpty {
+                Text(self.description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 8)
             }
         }
+    }
+}
+
+extension AppSectionView where Actions == EmptyView {
+    init(
+        title: String,
+        description: String = "",
+        enableBackground: Bool = true,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.title = title
+        self.description = description
+        self.enableBackground = enableBackground
+        self.content = content
+        self.actions = { EmptyView() }
     }
 }
 
@@ -71,17 +116,17 @@ struct AppPathText: View {
 
     @ViewBuilder
     var body: some View {
-        if isSelectable {
-            pathText
+        if self.isSelectable {
+            self.pathText
                 .textSelection(.enabled)
         } else {
-            pathText
+            self.pathText
         }
     }
 
     private var pathText: some View {
-        Text(path)
-            .font(.system(style, design: .monospaced))
+        Text(self.path)
+            .font(.system(self.style, design: .monospaced))
             .lineLimit(1)
             .truncationMode(.middle)
     }
@@ -94,15 +139,15 @@ struct AppPathRow<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: systemImage)
+            Image(systemName: self.systemImage)
                 .foregroundStyle(.secondary)
                 .frame(width: 16)
 
-            AppPathText(path: path)
+            AppPathText(path: self.path)
 
             Spacer()
 
-            trailing()
+            self.trailing()
         }
     }
 }
@@ -113,14 +158,25 @@ struct AppPathEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
+            Text(self.title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            TextEditor(text: $text)
+            TextEditor(text: self.$text)
                 .font(.system(.body, design: .monospaced))
                 .frame(minHeight: 90)
                 .scrollContentBackground(.hidden)
                 .background(.quaternary.opacity(0.2), in: RoundedRectangle(cornerRadius: 6))
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func sectionContainer(enableBackground: Bool) -> some View {
+        if enableBackground {
+            self.boxContainer(padding: 8)
+        } else {
+            self
         }
     }
 }

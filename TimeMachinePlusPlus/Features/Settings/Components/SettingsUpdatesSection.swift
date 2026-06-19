@@ -1,17 +1,35 @@
 import SwiftUI
 
+private enum SettingsUpdatesRow: Identifiable {
+    case version
+    case releaseNotes
+    case error
+    case action
+    case automaticUpdates
+
+    var id: Self { self }
+}
+
 struct SettingsUpdatesSection: View {
     @Environment(AppStateStore.self) private var store
 
     var body: some View {
         @Bindable var store = store
 
-        AppSectionView(title: "Updates", description: "Updates are downloaded from GitHub releases.") {
-            versionRow()
-            releaseNotes()
-            updateError()
-            updateAction()
-            automaticUpdatesToggle(store: store)
+        VStack {
+            AppSectionView(
+                title: "Updates",
+                description: "Updates are downloaded from GitHub releases."
+            ) {
+                versionRow()
+                releaseNotes()
+                updateError()
+                updateAction()
+            }
+
+            AppSectionView(title: "") {
+                automaticUpdatesToggle(store: store)
+            }
         }
     }
 
@@ -19,12 +37,16 @@ struct SettingsUpdatesSection: View {
 
     private func versionRow() -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
-            Label("Version \(AppBuildInfo.displayVersion)", systemImage: "app.badge")
+            Text("Version \(AppBuildInfo.displayVersion)")
                 .foregroundStyle(.secondary)
 
             if let updateTargetVersionLabel {
-                Label(updateTargetVersionLabel, systemImage: "arrow.right")
-                    .foregroundStyle(updateStatusColor)
+                Group {
+                    Image(systemName: "arrow.right")
+
+                    Text(updateTargetVersionLabel)
+                }
+                .foregroundStyle(updateStatusColor)
             }
         }
     }
@@ -113,16 +135,12 @@ struct SettingsUpdatesSection: View {
     }
 
     private func automaticUpdatesToggle(@Bindable store: AppStateStore) -> some View {
-        VStack {
-            Divider()
-
-            Toggle(isOn: $store.settings.automaticallyChecksForUpdates) {
-                Text("Automatically download updates")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .toggleStyle(.switch)
-            .onChange(of: store.settings.automaticallyChecksForUpdates, onAutomaticUpdateChecksChanged)
+        Toggle(isOn: $store.settings.automaticallyChecksForUpdates) {
+            Text("Automatically download updates")
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .toggleStyle(.switch)
+        .onChange(of: store.settings.automaticallyChecksForUpdates, onAutomaticUpdateChecksChanged)
     }
 }
 

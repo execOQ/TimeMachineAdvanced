@@ -11,6 +11,25 @@ final class AppUpdateModelTests: XCTestCase {
         XCTAssertEqual(AppUpdateStatus.failed.menuBarImage, "MenuIcon")
     }
 
+    @MainActor
+    func testPermissionWarningTakesMenuBarIconPrecedence() {
+        let store = AppStateStore()
+        store.updateStatus = .readyToInstall
+        store.fullDiskAccessStatus = .missing
+        store.settings = AppSettings(
+            scanRoots: [],
+            onboardingCompleted: true,
+            scanIntervalMinutes: AppSettings.dailyScanIntervalMinutes,
+            maxDepth: 7
+        )
+
+        XCTAssertEqual(store.menuBarImage, "MenuBar_Warning")
+
+        store.fullDiskAccessStatus = .granted
+
+        XCTAssertEqual(store.menuBarImage, "MenuIcon_Update")
+    }
+
     func testUpdateNotificationDedupesSameRelease() {
         XCTAssertTrue(AppUpdateNotificationPolicy.shouldNotify(version: "0.2.0", lastNotifiedVersion: nil))
         XCTAssertTrue(AppUpdateNotificationPolicy.shouldNotify(version: "0.2.1", lastNotifiedVersion: "0.2.0"))

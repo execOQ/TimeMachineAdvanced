@@ -12,10 +12,9 @@ struct RulesView: View {
         @Bindable var store = store
 
         PageView(title: "Rules", subtitle: "Exclude by pattern or add exact paths") {
-            VStack(alignment: .leading, spacing: 12) {
-                rulesList(rules: $store.rules)
-            }
+            rulesList(rules: $store.rules)
         }
+        .safeAreaInset(edge: .bottom, content: accessWarning)
         .toolbar {
             RulesToolbar(
                 isTemplateSheetPresented: $isTemplateSheetPresented,
@@ -36,19 +35,33 @@ struct RulesView: View {
 
     @ViewBuilder
     private func rulesList(rules: Binding<[RegexRule]>) -> some View {
-        if !rules.wrappedValue.isEmpty {
-            List {
-                ForEach(rules) { $rule in
-                    RuleRow(rule: $rule) {
-                        self.store.deleteRule(rule, undoManager: undoManager)
+        Group {
+            if !rules.wrappedValue.isEmpty {
+                List {
+                    ForEach(rules) { $rule in
+                        RuleRow(rule: $rule) {
+                            self.store.deleteRule(rule, undoManager: undoManager)
+                        }
                     }
                 }
+                .listStyle(.inset)
+                .disabled(!store.canEdit)
+            } else {
+                ContentUnavailableView("No rules added", systemImage: "plus", description: Text("Click plus in toolbar to create a new rule"))
             }
-            .listStyle(.inset)
-            .disabled(!store.canEdit)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            ContentUnavailableView("No rules added", systemImage: "plus", description: Text("Click plus in toolbar to create a new rule"))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func accessWarning() -> some View {
+        if let warning = store.accessWarningMessage {
+            Label(warning, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.yellow.opacity(0.16), in: .rect)
         }
     }
 }
