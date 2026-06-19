@@ -108,12 +108,6 @@ extension AppStateStore {
         save()
     }
 
-    func setMatchSelected(_ match: ScanMatch, isSelected: Bool) {
-        guard canEdit else { return }
-        guard let index = matches.firstIndex(where: { $0.id == match.id }) else { return }
-        matches[index].isSelected = isSelected
-    }
-
     func previewMatches(for rule: RegexRule) async -> [RulePreviewResult] {
         guard rule.isEnabled, rule.kind != .path, RuleMatcher.validationError(for: rule) == nil else { return [] }
 

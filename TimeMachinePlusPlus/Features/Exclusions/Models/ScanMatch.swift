@@ -19,8 +19,4 @@ struct ScanMatch: Identifiable, Hashable {
     var isExcluded: Bool
     var sizeBytes: Int64?
     var isSelected: Bool
-
-    var plannedAction: String {
-        isExcluded ? "Already excluded" : (isSelected ? "Will exclude" : "Skipped")
-    }
 }

@@ -29,7 +29,6 @@ final class AppStateStore {
     var helperRunCount: Int?
     var helperLastExitCode: Int32?
     var fullDiskAccessStatus: FullDiskAccessStatus = .missing
-    var isMeasuringSizes = false
     var isLoginItemEnabled = false
     var updateStatus: AppUpdateStatus = .idle
     var updateReleaseVersion: String?
@@ -91,14 +90,6 @@ final class AppStateStore {
         }
         return "Helper is loaded"
     }
-    var updateSummary: String {
-        if let lastUpdateCheckDate {
-            let relativeDate = Formatters.relativeDate.localizedString(for: lastUpdateCheckDate, relativeTo: Date())
-            return "\(updateStatusMessage) Last checked \(relativeDate)."
-        }
-        return updateStatusMessage
-    }
-    var hasAvailableUpdate: Bool { updateStatus == .readyToInstall || updateStatus == .downloading || updateStatus == .available }
     init(timeMachine: TimeMachineClient = LiveTimeMachineClient()) {
         self.timeMachine = timeMachine
         configureAppUpdater()

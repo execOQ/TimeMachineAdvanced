@@ -20,23 +20,6 @@ enum PathPicker {
     }
 
     @MainActor
-    static func pickDirectory(initialPath: String, prompt: String = "Add") async -> URL? {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.treatsFilePackagesAsDirectories = true
-        panel.prompt = prompt
-
-        if !initialPath.isEmpty {
-            panel.directoryURL = URL(fileURLWithPath: initialPath)
-        }
-
-        guard await present(panel) == .OK else { return nil }
-        return panel.url
-    }
-
-    @MainActor
     static func pickPaths(
         canChooseFiles: Bool,
         canChooseDirectories: Bool,

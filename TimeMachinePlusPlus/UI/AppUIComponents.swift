@@ -1,19 +1,5 @@
 import SwiftUI
 
-struct AppSectionHeader: View {
-    var title: String
-    var subtitle: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(self.title)
-                .font(.title2.weight(.semibold))
-            Text(self.subtitle)
-                .foregroundStyle(.secondary)
-        }
-    }
-}
-
 struct AppSectionLabel: View {
     var title: String
     var topPadding: CGFloat = 4
@@ -129,55 +115,6 @@ struct AppPathText: View {
             .font(.system(self.style, design: .monospaced))
             .lineLimit(1)
             .truncationMode(.middle)
-    }
-}
-
-struct AppPathRow<Trailing: View>: View {
-    var path: String
-    var systemImage: String = "folder"
-    @ViewBuilder var trailing: () -> Trailing
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: self.systemImage)
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-
-            AppPathText(path: self.path)
-
-            Spacer()
-
-            self.trailing()
-        }
-    }
-}
-
-struct AppPathEditor: View {
-    var title: String
-    @Binding var text: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(self.title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            TextEditor(text: self.$text)
-                .font(.system(.body, design: .monospaced))
-                .frame(minHeight: 90)
-                .scrollContentBackground(.hidden)
-                .background(.quaternary.opacity(0.2), in: RoundedRectangle(cornerRadius: 6))
-        }
-    }
-}
-
-private extension View {
-    @ViewBuilder
-    func sectionContainer(enableBackground: Bool) -> some View {
-        if enableBackground {
-            self.boxContainer(padding: 8)
-        } else {
-            self
-        }
     }
 }
 

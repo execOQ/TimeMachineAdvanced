@@ -2,18 +2,6 @@ import AppKit
 import Foundation
 
 extension AppStateStore {
-    func startScanNow() {
-        startOperation(title: "Scanning") { store in
-            await store.scanNow()
-        }
-    }
-
-    func startApplySelectedMatches() {
-        startOperation(title: "Applying Exclusions") { store in
-            await store.applySelectedMatches()
-        }
-    }
-
     func startConfiguredStartAction() {
         startScanAndApplyExclusions()
     }

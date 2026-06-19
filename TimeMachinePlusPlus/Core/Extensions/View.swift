@@ -17,31 +17,4 @@ extension View {
     func apply<T: View>(@ViewBuilder _ transform: (Self) -> T) -> T {
         transform(self)
     }
-
-    func readSize(onChange: @escaping (CGSize) -> Void) -> some View {
-        modifier(ReadSizeModifier(onChange: onChange))
-    }
-}
-
-private struct ReadSizeModifier: ViewModifier {
-    let onChange: (CGSize) -> Void
-
-    func body(content: Content) -> some View {
-        content
-            .background {
-                GeometryReader { geometry in
-                    Color.clear
-                        .preference(key: SizePreferenceKey.self, value: geometry.size)
-                }
-            }
-            .onPreferenceChange(SizePreferenceKey.self, perform: self.onChange)
-    }
-}
-
-private struct SizePreferenceKey: PreferenceKey {
-    static let defaultValue: CGSize = .zero
-
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
-        value = nextValue()
-    }
 }

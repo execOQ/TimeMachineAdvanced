@@ -3,7 +3,6 @@ import SwiftUI
 struct RulesView: View {
     @Environment(AppStateStore.self) private var store
     @Environment(\.undoManager) private var undoManager
-    var showsHeader: Bool = true
     @State private var autosaveTask: Task<Void, Never>?
     @State private var isTemplateSheetPresented = false
     @State private var isShowingAppManagedExclusions = false
