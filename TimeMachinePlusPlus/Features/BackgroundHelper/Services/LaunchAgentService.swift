@@ -11,6 +11,7 @@ struct LaunchAgentSnapshot {
 
 struct LaunchAgentService {
     var label = "com.timemachineplusplus.scan"
+    private let commandTimeoutSeconds: TimeInterval = 120
 
     var domain: String {
         "gui/\(getuid())"
@@ -53,28 +54,8 @@ struct LaunchAgentService {
         let launchAgents = plistURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: launchAgents, withIntermediateDirectories: true)
 
-        let seconds = max(5, intervalMinutes) * 60
-        let plist = """
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-            <key>Label</key>
-            <string>\(label)</string>
-            <key>ProgramArguments</key>
-            <array>
-                <string>\(executable)</string>
-                <string>--background-scan</string>
-            </array>
-            <key>StartInterval</key>
-            <integer>\(seconds)</integer>
-            <key>RunAtLoad</key>
-            <true/>
-        </dict>
-        </plist>
-        """
-
-        try plist.write(to: plistURL, atomically: true, encoding: .utf8)
+        let plist = try Self.plistData(label: label, executable: executable, intervalMinutes: intervalMinutes)
+        try plist.write(to: plistURL, options: [.atomic])
         _ = try? runLaunchctl(arguments: ["bootout", serviceTarget])
         _ = try? runLaunchctl(arguments: ["enable", serviceTarget])
         try runLaunchctlOrThrow(arguments: ["bootstrap", domain, plistURL.path])
@@ -102,8 +83,10 @@ struct LaunchAgentService {
             process.standardOutput = outputPipe
             process.standardError = errorPipe
 
+            ProcessRegistry.shared.register(process)
+            defer { ProcessRegistry.shared.deregister(process) }
             try process.run()
-            process.waitUntilExit()
+            Self.waitForProcess(process, timeout: commandTimeoutSeconds)
 
             let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             let errorOutput = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
@@ -119,8 +102,10 @@ struct LaunchAgentService {
         let errorPipe = Pipe()
         process.standardOutput = outputPipe
         process.standardError = errorPipe
+        ProcessRegistry.shared.register(process)
+        defer { ProcessRegistry.shared.deregister(process) }
         try process.run()
-        process.waitUntilExit()
+        Self.waitForProcess(process, timeout: commandTimeoutSeconds)
 
         let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         let errorOutput = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
@@ -141,6 +126,34 @@ struct LaunchAgentService {
             return Int(trimmed.replacingOccurrences(of: "\(field) = ", with: ""))
         }
         return nil
+    }
+
+    private static func waitForProcess(_ process: Process, timeout: TimeInterval) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+
+        if process.isRunning {
+            process.terminate()
+            Thread.sleep(forTimeInterval: 0.2)
+            if process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+            }
+        }
+
+        process.waitUntilExit()
+    }
+
+    static func plistData(label: String, executable: String, intervalMinutes: Int) throws -> Data {
+        let seconds = max(5, intervalMinutes) * 60
+        let plist: [String: Any] = [
+            "Label": label,
+            "ProgramArguments": [executable, "--background-scan"],
+            "StartInterval": seconds,
+            "RunAtLoad": true
+        ]
+        return try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
     }
 }
 

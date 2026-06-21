@@ -56,7 +56,9 @@ enum RuleMatcher {
     static func matches(path: String, isDirectory: Bool, rule: RegexRule) -> Bool {
         switch rule.kind {
         case .path:
-            return path == rule.pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+            let normalizedPath = PathNormalizer.normalized(path)
+            let normalizedRulePath = PathNormalizer.normalized(rule.pattern.trimmingCharacters(in: .whitespacesAndNewlines))
+            return normalizedPath == normalizedRulePath
 
         case .pattern:
             return pathPatterns(from: rule.pattern).contains { pattern in

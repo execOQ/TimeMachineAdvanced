@@ -22,26 +22,29 @@ struct AppManagedExclusionRow: View {
             Spacer()
         }
         .padding(.vertical, 5)
-        .contextMenu {
-            Button {
-                FinderPathActions.copy(path: exclusion.path)
-            } label: {
-                Label("Copy Path", systemImage: "document.on.document.fill")
-            }
+        .contextMenu(menuItems: contextMenuButtons)
+    }
 
-            Button {
-                FinderPathActions.reveal(path: exclusion.path)
-            } label: {
-                Label("Reveal in Finder", systemImage: "magnifyingglass")
-            }
+    @ViewBuilder
+    private func contextMenuButtons() -> some View {
+        Button {
+            FinderPathActions.copy(path: exclusion.path)
+        } label: {
+            Label("Copy Path", systemImage: "document.on.document.fill")
+        }
 
-            Divider()
+        Button {
+            FinderPathActions.reveal(path: exclusion.path)
+        } label: {
+            Label("Reveal in Finder", systemImage: "magnifyingglass")
+        }
 
-            Button {
-                Task { await store.removeApplied([exclusion]) }
-            } label: {
-                Label("Remove Exclusion", systemImage: "trash")
-            }
+        Divider()
+
+        Button {
+            Task { await store.removeApplied([exclusion]) }
+        } label: {
+            Label("Remove Exclusion", systemImage: "trash")
         }
     }
 }

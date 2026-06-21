@@ -5,13 +5,6 @@ private struct IgnoredPathItem: Identifiable {
     var id: String { path }
 }
 
-private enum SettingsIgnoredPathsRow: Identifiable {
-    case paths
-    case actions
-
-    var id: Self { self }
-}
-
 struct SettingsIgnoredPathsSection: View {
     @Environment(AppStateStore.self) private var store
 
@@ -46,20 +39,6 @@ struct SettingsIgnoredPathsSection: View {
                 if item.path != store.settings.ignoredPaths.last {
                     Divider()
                 }
-            }
-        }
-    }
-
-    private func ignoredPathActions() -> some View {
-        HStack(spacing: 8) {
-            Button(action: pickIgnoredPaths) {
-                Label("Add Ignored Path", systemImage: "plus")
-                    .foregroundStyle(.primary)
-            }
-
-            Button(action: store.resetIgnoredPaths) {
-                Label("Reset Defaults", systemImage: "arrow.counterclockwise")
-                    .foregroundStyle(.primary)
             }
         }
     }

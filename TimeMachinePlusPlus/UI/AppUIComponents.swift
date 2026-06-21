@@ -121,6 +121,7 @@ struct AppPathText: View {
 extension View {
     func boxContainer(color: Color = .secondary, cornerRadius: CGFloat = 6, padding: CGFloat = 6) -> some View {
         self.padding(.all, padding)
+            .frame(minHeight: 40)
             .background(color.opacity(0.06), in: RoundedRectangle(cornerRadius: cornerRadius))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)

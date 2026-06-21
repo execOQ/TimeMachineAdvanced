@@ -127,8 +127,12 @@ struct FileSystemScanner {
     }
 
     private func relativeDepth(of url: URL, from root: URL) -> Int {
-        let relative = url.path.replacingOccurrences(of: root.path, with: "")
-        return relative.split(separator: "/").count
+        let rootComponents = root.standardizedFileURL.pathComponents
+        let urlComponents = url.standardizedFileURL.pathComponents
+        guard urlComponents.starts(with: rootComponents) else {
+            return urlComponents.count
+        }
+        return urlComponents.dropFirst(rootComponents.count).count
     }
 
     private func isIgnored(_ path: String, ignoredPaths: [String]) -> Bool {

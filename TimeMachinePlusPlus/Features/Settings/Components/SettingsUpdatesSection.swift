@@ -1,15 +1,5 @@
 import SwiftUI
 
-private enum SettingsUpdatesRow: Identifiable {
-    case version
-    case releaseNotes
-    case error
-    case action
-    case automaticUpdates
-
-    var id: Self { self }
-}
-
 struct SettingsUpdatesSection: View {
     @Environment(AppStateStore.self) private var store
 

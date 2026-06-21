@@ -86,8 +86,10 @@ extension AppStateStore {
 
     func addPathRules(_ urls: [URL], undoManager: UndoManager? = nil) {
         guard canEdit else { return }
-        let known = Set(rules.filter { $0.kind == .path }.map(\.pattern))
-        let additions = urls.map(\.path).filter { !known.contains($0) }
+        let known = Set(rules.filter { $0.kind == .path }.map { PathNormalizer.normalized($0.pattern) })
+        let additions = urls
+            .map(PathNormalizer.normalized)
+            .filter { !known.contains($0) }
         let newRules = additions.map { path in
             let name = URL(fileURLWithPath: path).lastPathComponent
             return RegexRule(name: name, pattern: path, kind: .path, isEnabled: true, includeFiles: true)

@@ -1,13 +1,5 @@
 import SwiftUI
 
-private enum SettingsAppRow: Identifiable {
-    case launchAtLogin
-    case helperStatus
-    case helperActionStatus
-
-    var id: Self { self }
-}
-
 struct SettingsAppSection: View {
     @Environment(AppStateStore.self) private var store
 

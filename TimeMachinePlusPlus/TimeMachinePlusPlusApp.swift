@@ -15,12 +15,13 @@ enum TimeMachinePlusPlusMain {
     }
 
     private static func runBackgroundScan() {
-        var isFinished = false
+        let completion = BackgroundScanCompletion()
 
         Task { @MainActor in
+            defer { completion.finish() }
             let store = AppStateStore()
             store.load()
-            _ = store.beginBlockingOperation(title: "Background Scan")
+            guard store.beginBlockingOperation(title: "Background Scan") else { return }
             await store.scanNow()
             let scannedItemCount = store.matches.count
             let addedExclusionCount = await store.applySelectedMatches(refreshAfterApply: false)
@@ -30,12 +31,28 @@ enum TimeMachinePlusPlusMain {
             )
             HelperNotifications.postScanDidFinish()
             store.finishBlockingOperation(status: store.statusMessage)
-            isFinished = true
         }
 
-        while !isFinished {
+        while !completion.isFinished {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
         }
+    }
+}
+
+private final class BackgroundScanCompletion: @unchecked Sendable {
+    private let lock = NSLock()
+    private var finished = false
+
+    var isFinished: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return finished
+    }
+
+    func finish() {
+        lock.lock()
+        finished = true
+        lock.unlock()
     }
 }
 

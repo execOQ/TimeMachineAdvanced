@@ -25,13 +25,6 @@ final class ProcessRegistry {
         lock.unlock()
         snapshot.forEach { $0.terminate() }
     }
-
-    func terminateMatching(_ predicate: (Process) -> Bool) {
-        lock.lock()
-        let snapshot = Array(processes.values)
-        lock.unlock()
-        snapshot.filter(predicate).forEach { $0.terminate() }
-    }
 }
 
 struct CommandResult: Equatable, Sendable {
@@ -84,9 +77,9 @@ struct LiveTimeMachineClient: TimeMachineClient {
         process.standardError = errorPipe
 
         ProcessRegistry.shared.register(process)
+        defer { ProcessRegistry.shared.deregister(process) }
         try process.run()
         waitForProcess(process, timeout: commandTimeoutSeconds)
-        ProcessRegistry.shared.deregister(process)
 
         let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         let errorOutput = String(data: errorPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""

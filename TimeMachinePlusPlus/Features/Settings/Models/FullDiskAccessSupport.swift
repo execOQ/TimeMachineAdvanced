@@ -49,10 +49,6 @@ enum FullDiskAccessSupport {
         NSWorkspace.shared.open(url)
     }
 
-    static func revealCurrentAppInFinder() {
-        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
-    }
-
     private static var isSandboxed: Bool {
         ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
     }

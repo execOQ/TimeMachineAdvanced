@@ -24,4 +24,10 @@ final class RuleMatcherTests: XCTestCase {
         XCTAssertTrue(RuleMatcher.matches(path: "/Users/me/app/venv", isDirectory: true, rule: rule))
         XCTAssertFalse(RuleMatcher.matches(path: "/Users/me/app/venv.txt", isDirectory: false, rule: rule))
     }
+
+    func testPathRuleMatchesStandardizedPath() {
+        let rule = RegexRule(name: "Cache", pattern: "/Users/me/project/../project/cache", kind: .path)
+
+        XCTAssertTrue(RuleMatcher.matches(path: "/Users/me/project/cache", isDirectory: true, rule: rule))
+    }
 }

@@ -1,4 +1,3 @@
-import AppKit
 import AppUpdater
 import Combine
 import Foundation
@@ -43,11 +42,6 @@ extension AppStateStore {
         startUpdateDownload(knownAvailableRelease: nil)
     }
 
-    func openLatestReleasePage() {
-        let url = updateReleaseURL ?? URL(string: "https://github.com/execOQ/TimeMachinePlusPlus/releases")!
-        NSWorkspace.shared.open(url)
-    }
-
     func installDownloadedUpdate() {
         guard case .downloaded(_, _, let bundle) = appUpdater.state else { return }
         updateStatus = .installing
@@ -87,28 +81,39 @@ private extension AppStateStore {
         statusMessage = updateStatusMessage
 
         Task { @MainActor in
-            let availableRelease = await fetchAvailableGitHubRelease()
-            guard !Task.isCancelled else { return }
+            do {
+                let availableRelease = try await availableGitHubRelease()
+                guard !Task.isCancelled else { return }
 
-            lastUpdateCheckDate = Date()
+                lastUpdateCheckDate = Date()
 
-            if let availableRelease {
-                capture(metadata: availableRelease)
-                updateStatus = .available
-                updateStatusMessage = "Update available: \(availableRelease.displayName)"
+                if let availableRelease {
+                    capture(metadata: availableRelease)
+                    updateStatus = .available
+                    updateStatusMessage = "Update available: \(availableRelease.displayName)"
+                    statusMessage = updateStatusMessage
+                    save()
+
+                    if isAutomatic {
+                        startUpdateDownload(knownAvailableRelease: availableRelease)
+                    }
+                    return
+                }
+
+                updateStatus = .upToDate
+                updateStatusMessage = "TimeMachine++ is up to date"
                 statusMessage = updateStatusMessage
                 save()
-
-                if isAutomatic {
-                    startUpdateDownload(knownAvailableRelease: availableRelease)
-                }
-                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                lastUpdateCheckDate = Date()
+                updateStatus = .failed
+                updateDownloadProgress = nil
+                updateLastError = String(describing: error)
+                updateStatusMessage = isAutomatic ? "Automatic update check failed" : "Could not check for updates"
+                statusMessage = updateStatusMessage
+                save()
             }
-
-            updateStatus = .upToDate
-            updateStatusMessage = "TimeMachine++ is up to date"
-            statusMessage = updateStatusMessage
-            save()
         }
     }
 
@@ -126,7 +131,13 @@ private extension AppStateStore {
             if let knownAvailableRelease {
                 availableRelease = knownAvailableRelease
             } else {
-                availableRelease = await self?.fetchAvailableGitHubRelease()
+                do {
+                    availableRelease = try await self?.availableGitHubRelease()
+                } catch {
+                    guard !Task.isCancelled, let self else { return }
+                    handleUpdateDownloadFailure(error, knownAvailableRelease: nil)
+                    return
+                }
             }
             guard !Task.isCancelled, let self else { return }
 

@@ -38,6 +38,7 @@ extension AppStateStore {
 
             guard !Task.isCancelled else {
                 isHelperOperationInProgress = false
+                helperOperationTask = nil
                 return
             }
             applyHelperStatusUpdate(result.update)
@@ -71,6 +72,7 @@ extension AppStateStore {
 
             guard !Task.isCancelled else {
                 isHelperOperationInProgress = false
+                helperOperationTask = nil
                 return
             }
             applyHelperStatusUpdate(result.update)
@@ -93,7 +95,10 @@ extension AppStateStore {
                 HelperStatusUpdate(snapshot: launchAgent.snapshot(), state: storage.load())
             }.value
 
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                helperStatusTask = nil
+                return
+            }
             applyHelperStatusUpdate(update)
             helperStatusTask = nil
         }

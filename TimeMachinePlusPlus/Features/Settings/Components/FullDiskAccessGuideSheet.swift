@@ -13,10 +13,7 @@ struct FullDiskAccessGuideSheet: View {
         .scenePadding()
         .frame(width: 450)
         .frame(height: 400)
-        .onAppear {
-            guard !AppRuntime.isRunningForPreviews else { return }
-            FullDiskAccessSupport.openSystemSettings()
-        }
+        .onAppear(perform: onAppear)
     }
 
     private func dragTarget() -> some View {
@@ -64,6 +61,13 @@ struct FullDiskAccessGuideSheet: View {
             }
             .buttonStyle(.borderedProminent)
         }
+    }
+}
+
+private extension FullDiskAccessGuideSheet {
+    func onAppear() {
+        guard !AppRuntime.isRunningForPreviews else { return }
+        FullDiskAccessSupport.openSystemSettings()
     }
 }
 

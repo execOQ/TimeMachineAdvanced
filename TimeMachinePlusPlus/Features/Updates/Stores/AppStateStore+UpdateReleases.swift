@@ -22,18 +22,13 @@ extension AppStateStore {
         updateReleaseNotes = release.body.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func fetchAvailableGitHubRelease() async -> GitHubReleaseMetadata? {
-        do {
-            let releases = try await fetchGitHubReleases()
-                .filter { !$0.isPrerelease }
-                .sorted { AppVersionComparator.isNewer($0.version, than: $1.version) }
+    func availableGitHubRelease() async throws -> GitHubReleaseMetadata? {
+        let releases = try await fetchGitHubReleases()
+            .filter { !$0.isPrerelease }
+            .sorted { AppVersionComparator.isNewer($0.version, than: $1.version) }
 
-            return releases.first {
-                AppVersionComparator.isNewer($0.version, than: AppBuildInfo.version)
-            }
-        } catch {
-            updateLastError = String(describing: error)
-            return nil
+        return releases.first {
+            AppVersionComparator.isNewer($0.version, than: AppBuildInfo.version)
         }
     }
 

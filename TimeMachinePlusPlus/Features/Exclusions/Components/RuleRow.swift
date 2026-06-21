@@ -8,10 +8,12 @@
 import SwiftUI
 
 struct RuleRow: View {
-    @Binding var rule: RegexRule
     @Environment(AppStateStore.self) private var store
     @Environment(\.undoManager) private var undoManager
+
+    @Binding var rule: RegexRule
     var onDelete: () -> Void
+
     @State private var isExpanded = false
     @State private var isAIHelperPresented = false
     @State private var aiGenerationState = AIRegexGenerationState()

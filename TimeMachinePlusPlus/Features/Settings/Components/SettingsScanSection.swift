@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsScanSection: View {
     @Environment(AppStateStore.self) private var store
     @State private var intervalUnit: SettingsIntervalUnit = .days
-    @State private var permissionsStatusMessage: String?
     @State private var helperActionMessage: String?
     @State private var isShowingFullDiskAccessGuide = false
 
@@ -11,30 +10,37 @@ struct SettingsScanSection: View {
         @Bindable var store = store
 
         VStack(spacing: 15) {
-            AppSectionView(title: "Full Disk Access") {
-                fullDiskAccessRow()
-            }
+            FullDiskAccessSettingsSection(
+                status: store.fullDiskAccessStatus,
+                refreshAction: store.refreshFullDiskAccessStatus,
+                openSettingsAction: openFullDiskAccessSettings
+            )
 
-            AppSectionView(title: "Background Scan") {
-                helperStatusRow()
-            }
+            BackgroundHelperSettingsSection(
+                isInstalled: store.isHelperInstalled,
+                isLoaded: store.isHelperLoaded,
+                isRunning: store.isHelperRunning,
+                isOperationInProgress: store.isHelperOperationInProgress,
+                refreshAction: store.refreshHelperStatus,
+                installAction: installBackgroundAgent,
+                uninstallAction: uninstallBackgroundAgent,
+                openBackgroundItemsAction: openBackgroundItemsSettings
+            )
 
-            AppSectionView(
-                title: "Additional Scan Roots",
-                description: "Add network shares, external drives, or other folders to scan beyond Home directory."
-            ) {
-                additionalScanRootsList()
-            } actions: {
-                Button(action: pickAdditionalScanRoots) {
-                    Label("Add", systemImage: "plus")
-                        .foregroundStyle(.primary)
-                }
-            }
+            AdditionalScanRootsSection(
+                paths: store.settings.scanRoots,
+                addAction: pickAdditionalScanRoots,
+                removeAction: store.deleteScanRoot
+            )
 
-            AppSectionView(title: "Advanced") {
-                maxDepthControl(store: store)
-                scanIntervalControl()
-            }
+            AdvancedScanSettingsSection(
+                maxDepth: $store.settings.maxDepth,
+                intervalUnit: $intervalUnit,
+                intervalValue: intervalValueBinding,
+                intervalRange: intervalRange,
+                currentIntervalValue: currentIntervalValue,
+                unitChanged: updateScanIntervalForSelectedUnit
+            )
 
             #if DEBUG
                 AppSectionView(title: "Debug") {
@@ -47,174 +53,11 @@ struct SettingsScanSection: View {
         .sheet(isPresented: $isShowingFullDiskAccessGuide) {
             FullDiskAccessGuideSheet()
         }
+        .onAppear(perform: syncIntervalUnit)
+        .onChange(of: store.settings.scanIntervalMinutes, syncIntervalUnit)
     }
 
     // MARK: - View Components
-
-    private func helperStatusRow() -> some View {
-        HStack(spacing: 10) {
-            Label(helperStatusLabel, systemImage: helperStatusIcon)
-                .foregroundStyle(helperStatusColor)
-
-            Spacer()
-
-            Button {
-                store.refreshHelperStatus()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .buttonStyle(.borderless)
-            .help("Refresh helper status")
-            .disabled(store.isHelperOperationInProgress)
-
-            helperActionButton()
-        }
-    }
-
-    @ViewBuilder
-    private func helperActionButton() -> some View {
-        if store.isHelperOperationInProgress {
-            ProgressView()
-                .controlSize(.small)
-                .help("Updating helper")
-        } else if store.isHelperInstalled && !store.isHelperLoaded {
-            HStack(spacing: 8) {
-                Button {
-                    store.installBackgroundAgent()
-                    helperActionMessage = "Helper reload requested"
-                } label: {
-                    Label("Reload Helper", systemImage: "arrow.clockwise")
-                        .foregroundStyle(.primary)
-                }
-
-                Button {
-                    openBackgroundItemsSettings()
-                } label: {
-                    Image(systemName: "gear")
-                }
-                .help("Open Background Items settings")
-            }
-        } else if store.isHelperInstalled {
-            Button(role: .destructive) {
-                store.uninstallBackgroundAgent()
-                helperActionMessage = "Helper removal requested"
-            } label: {
-                Label("Remove Helper", systemImage: "xmark.circle")
-                    .foregroundStyle(.primary)
-            }
-        } else {
-            Button {
-                store.installBackgroundAgent()
-                helperActionMessage = "Helper installation requested"
-            } label: {
-                Label("Install Helper", systemImage: "bolt.badge.clock")
-                    .foregroundStyle(.primary)
-            }
-        }
-    }
-
-    private func fullDiskAccessRow() -> some View {
-        HStack(spacing: 10) {
-            Label(store.fullDiskAccessStatus.label, systemImage: fullDiskAccessStatusIcon)
-                .foregroundStyle(fullDiskAccessStatusColor)
-
-            Spacer()
-
-            Button {
-                store.refreshFullDiskAccessStatus()
-                permissionsStatusMessage = "Full Disk Access status refreshed"
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .buttonStyle(.borderless)
-            .help("Recheck Full Disk Access status")
-
-            Button {
-                openFullDiskAccessSettings()
-            } label: {
-                Label("Open Settings", systemImage: "gear")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func permissionsMessage() -> some View {
-        if let permissionsStatusMessage {
-            Label(permissionsStatusMessage, systemImage: "info.circle")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    @ViewBuilder
-    private func additionalScanRootsList() -> some View {
-        if store.settings.scanRoots.isEmpty {
-            Label("No additional scan roots", systemImage: "folder.badge.questionmark")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            VStack {
-                ForEach(store.settings.scanRoots, id: \.self) { path in
-                    AdditionalScanRootRow(path: path) {
-                        store.deleteScanRoot(path)
-                    }
-
-                    if path != store.settings.scanRoots.last {
-                        Divider()
-                            .padding(.leading, 16)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.secondary.opacity(0.05), in: RoundedRectangle(cornerRadius: 4))
-        }
-    }
-
-    @ViewBuilder
-    private func maxDepthControl(@Bindable store: AppStateStore) -> some View {
-        HStack {
-            Text("Maximum scan depth")
-
-            Spacer()
-
-            Stepper(value: $store.settings.maxDepth, in: 1...24) {
-                Text(store.settings.maxDepth.description)
-            }
-            .fixedSize()
-            .controlSize(.small)
-        }
-    }
-
-    private func scanIntervalControl() -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Text("Check Frequency")
-
-            Spacer()
-
-            Stepper(value: intervalValueBinding, in: intervalRange) {
-                HStack {
-                    Text("every")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("\(currentIntervalValue)")
-                        .monospacedDigit()
-                }
-            }
-
-            .fixedSize()
-            .controlSize(.small)
-
-            Picker("", selection: $intervalUnit) {
-                Text("hours").tag(SettingsIntervalUnit.hours)
-                Text("days").tag(SettingsIntervalUnit.days)
-                Text("weeks").tag(SettingsIntervalUnit.weeks)
-            }
-            .fixedSize()
-            .pickerStyle(.menu)
-            .onChange(of: intervalUnit, updateScanIntervalForSelectedUnit)
-        }
-    }
 
     #if DEBUG
         private func debugHelperControls() -> some View {
@@ -259,42 +102,21 @@ struct SettingsScanSection: View {
     #endif
 }
 
-private struct AdditionalScanRootRow: View {
-    var path: String
-    var onRemove: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "externaldrive")
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(URL(fileURLWithPath: path).lastPathComponent)
-                    .font(.body)
-                Text("Additional scan root")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                AppPathText(path: path, style: .caption)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Spacer()
-
-            Button("Remove", role: .destructive) {
-                onRemove()
-            }
-        }
-        .padding(8)
-    }
-}
-
 private extension SettingsScanSection {
+    func installBackgroundAgent() {
+        store.installBackgroundAgent()
+        helperActionMessage = "Helper installation requested"
+    }
+
+    func uninstallBackgroundAgent() {
+        store.uninstallBackgroundAgent()
+        helperActionMessage = "Helper removal requested"
+    }
+
     func openFullDiskAccessSettings() {
         store.settings.onboardingCompleted = true
         store.save()
         isShowingFullDiskAccessGuide = true
-        permissionsStatusMessage = "Opened Full Disk Access guide"
     }
 
     func pickAdditionalScanRoots() {
@@ -302,29 +124,6 @@ private extension SettingsScanSection {
             let urls = await PathPicker.pickPaths(canChooseFiles: false, canChooseDirectories: true)
             guard !urls.isEmpty else { return }
             store.addScanRoots(urls)
-            permissionsStatusMessage = "Added \(urls.count) scan root\(urls.count == 1 ? "" : "s")"
-        }
-    }
-
-    var fullDiskAccessStatusIcon: String {
-        switch store.fullDiskAccessStatus {
-        case .granted:
-            return "lock.open.fill"
-        case .missing:
-            return "lock.fill"
-        case .sandboxed:
-            return "exclamationmark.triangle.fill"
-        }
-    }
-
-    var fullDiskAccessStatusColor: Color {
-        switch store.fullDiskAccessStatus {
-        case .granted:
-            return .green
-        case .missing:
-            return .orange
-        case .sandboxed:
-            return .secondary
         }
     }
 
@@ -363,6 +162,10 @@ private extension SettingsScanSection {
         store.settings.scanIntervalMinutes = minutes(from: clampedValue, unit: intervalUnit)
     }
 
+    func syncIntervalUnit() {
+        intervalUnit = SettingsIntervalUnit.preferredUnit(forMinutes: store.settings.scanIntervalMinutes)
+    }
+
     func minutes(from value: Int, unit: SettingsIntervalUnit) -> Int {
         switch unit {
         case .hours:
@@ -381,27 +184,6 @@ private extension SettingsScanSection {
     func openBackgroundItemsSettings() {
         BackgroundItemsSupport.openSystemSettings()
         helperActionMessage = "Opened Background Items settings"
-    }
-
-    var helperStatusLabel: String {
-        if !store.isHelperInstalled { return "Helper not installed" }
-        if !store.isHelperLoaded { return "Helper disabled" }
-        if store.isHelperRunning { return "Helper running" }
-        return "Helper installed"
-    }
-
-    var helperStatusIcon: String {
-        if !store.isHelperInstalled { return "xmark.circle" }
-        if !store.isHelperLoaded { return "exclamationmark.circle.fill" }
-        if store.isHelperRunning { return "gearshape.arrow.triangle.2.circlepath" }
-        return "checkmark.circle.fill"
-    }
-
-    var helperStatusColor: Color {
-        if !store.isHelperInstalled { return .secondary }
-        if !store.isHelperLoaded { return .orange }
-        if store.isHelperRunning { return .blue }
-        return .green
     }
 }
 

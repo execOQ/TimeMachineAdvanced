@@ -8,7 +8,7 @@ enum ScanCandidateBuilder {
         rules.compactMap { rule in
             guard rule.kind == .path, rule.isEnabled else { return nil }
 
-            let path = rule.pattern.trimmingCharacters(in: .whitespacesAndNewlines)
+            let path = PathNormalizer.normalized(rule.pattern.trimmingCharacters(in: .whitespacesAndNewlines))
             guard !path.isEmpty else { return nil }
             guard !scannedPaths.contains(path) else { return nil }
             guard FileManager.default.fileExists(atPath: path) else { return nil }

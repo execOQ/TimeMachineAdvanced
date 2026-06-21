@@ -58,9 +58,9 @@ struct AppSettings: Codable, Hashable {
         self.ignoredPaths = ScanAccessResolver.normalizedUnique(ignoredPaths)
         self.onboardingCompleted = onboardingCompleted
         self.startButtonStartsBackup = startButtonStartsBackup
-        self.scanIntervalMinutes = scanIntervalMinutes
-        self.maxDepth = maxDepth
-        self.previewResultLimit = previewResultLimit
+        self.scanIntervalMinutes = Self.clampedScanIntervalMinutes(scanIntervalMinutes)
+        self.maxDepth = Self.clampedMaxDepth(maxDepth)
+        self.previewResultLimit = Self.clampedPreviewResultLimit(previewResultLimit)
         self.automaticallyChecksForUpdates = automaticallyChecksForUpdates
     }
 
@@ -73,21 +73,19 @@ struct AppSettings: Codable, Hashable {
         onboardingCompleted = try c.decodeIfPresent(Bool.self, forKey: .onboardingCompleted) ?? false
 
         startButtonStartsBackup = try c.decodeIfPresent(Bool.self, forKey: .startButtonStartsBackup) ?? false
-        scanIntervalMinutes = try c.decode(Int.self, forKey: .scanIntervalMinutes)
-        maxDepth = try c.decode(Int.self, forKey: .maxDepth)
-        previewResultLimit = try c.decodeIfPresent(Int.self, forKey: .previewResultLimit) ?? Self.defaultPreviewResultLimit
+        scanIntervalMinutes = Self.clampedScanIntervalMinutes(
+            try c.decodeIfPresent(Int.self, forKey: .scanIntervalMinutes) ?? Self.dailyScanIntervalMinutes
+        )
+        maxDepth = Self.clampedMaxDepth(try c.decodeIfPresent(Int.self, forKey: .maxDepth) ?? 7)
+        previewResultLimit = Self.clampedPreviewResultLimit(
+            try c.decodeIfPresent(Int.self, forKey: .previewResultLimit) ?? Self.defaultPreviewResultLimit
+        )
         automaticallyChecksForUpdates = try c.decodeIfPresent(Bool.self, forKey: .automaticallyChecksForUpdates) ?? true
     }
 
     func withScanRoots(_ roots: [String]) -> AppSettings {
         var copy = self
         copy.scanRoots = ScanAccessResolver.normalizedUnique(roots)
-        return copy
-    }
-
-    func withIgnoredPaths(_ paths: [String]) -> AppSettings {
-        var copy = self
-        copy.ignoredPaths = ScanAccessResolver.normalizedUnique(paths)
         return copy
     }
 }
@@ -97,5 +95,17 @@ private extension AppSettings {
         let home = PathNormalizer.normalized(FileManager.default.homeDirectoryForCurrentUser)
         return ScanAccessResolver.normalizedUnique(roots)
             .filter { $0 != home }
+    }
+
+    static func clampedScanIntervalMinutes(_ minutes: Int) -> Int {
+        min(max(1, minutes), 4 * weeklyScanIntervalMinutes)
+    }
+
+    static func clampedMaxDepth(_ depth: Int) -> Int {
+        min(max(1, depth), 24)
+    }
+
+    static func clampedPreviewResultLimit(_ limit: Int) -> Int {
+        max(1, limit)
     }
 }

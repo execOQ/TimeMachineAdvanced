@@ -101,4 +101,41 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertEqual(settings.ignoredPaths, ["/Users/me/Projects/.build", "/Users/me/Projects/node_modules"])
     }
+
+    func testSettingsDecodeMissingTimingValuesUsesDefaults() throws {
+        let json = """
+        {
+          "scanRoots": ["/Users/me/Projects"]
+        }
+        """
+
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+
+        XCTAssertEqual(settings.scanIntervalMinutes, AppSettings.dailyScanIntervalMinutes)
+        XCTAssertEqual(settings.maxDepth, 7)
+        XCTAssertEqual(settings.previewResultLimit, AppSettings.defaultPreviewResultLimit)
+    }
+
+    func testSettingsClampPersistedNumericBounds() throws {
+        let json = """
+        {
+          "scanRoots": ["/Users/me/Projects"],
+          "scanIntervalMinutes": 0,
+          "maxDepth": -4,
+          "previewResultLimit": 0
+        }
+        """
+
+        let settings = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
+
+        XCTAssertEqual(settings.scanIntervalMinutes, 1)
+        XCTAssertEqual(settings.maxDepth, 1)
+        XCTAssertEqual(settings.previewResultLimit, 1)
+    }
+
+    func testIntervalUnitPrefersPersistedUnitScale() {
+        XCTAssertEqual(SettingsIntervalUnit.preferredUnit(forMinutes: 60), .hours)
+        XCTAssertEqual(SettingsIntervalUnit.preferredUnit(forMinutes: AppSettings.dailyScanIntervalMinutes), .days)
+        XCTAssertEqual(SettingsIntervalUnit.preferredUnit(forMinutes: AppSettings.weeklyScanIntervalMinutes), .weeks)
+    }
 }

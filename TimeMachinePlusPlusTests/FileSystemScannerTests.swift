@@ -69,4 +69,29 @@ final class FileSystemScannerTests: XCTestCase {
 
         XCTAssertEqual(matches.map(\.path), [includedBuild.path])
     }
+
+    func testScannerDepthUsesRootPrefixOnly() throws {
+        let root = FileManager.default.temporaryDirectory.standardizedFileURL
+            .appendingPathComponent("TimeMachinePlusPlusDepth-\(UUID().uuidString)", isDirectory: true)
+        let repeatedRootComponents = root.pathComponents.dropFirst()
+        let repeatedRootPath = repeatedRootComponents.reduce(root) { partial, component in
+            partial.appendingPathComponent(component, isDirectory: true)
+        }
+        let deeplyNestedNodeModules = repeatedRootPath.appendingPathComponent("node_modules", isDirectory: true)
+        try FileManager.default.createDirectory(at: deeplyNestedNodeModules, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let settings = AppSettings(
+            scanRoots: [root.path],
+            scanIntervalMinutes: AppSettings.dailyScanIntervalMinutes,
+            maxDepth: 2
+        )
+
+        let matches = FileSystemScanner().scan(
+            settings: settings,
+            rule: RegexRule(name: "Node", pattern: "node_modules/", kind: .pattern)
+        )
+
+        XCTAssertFalse(matches.contains { $0.path == deeplyNestedNodeModules.path })
+    }
 }
